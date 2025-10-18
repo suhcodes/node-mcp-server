@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "node-mcp-server": {
+      "command": "npx",
+      "args": ["tsx", "src/server.ts"],
+      "env": {
+        "LOG_LEVEL": "error"
+      }
+    }
+  }
+}
