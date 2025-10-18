@@ -69,9 +69,6 @@ If you prefer to set up manually:
 ```bash
 # Install dependencies
 yarn install
-
-# or with npm
-npm install
 ```
 
 ### Development
