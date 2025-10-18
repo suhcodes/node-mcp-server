@@ -29,15 +29,26 @@ node-mcp-server/
 │   │       └── index.ts       # Exports
 │   └── utils/
 │       └── logger/            # Structured logger
-├── tests/
+├── tests/                     # Tests mirror src/ structure
 │   ├── tools/
-│   │   └── ping.test.ts       # Unit tests
+│   │   └── ping/
+│   │       ├── handler.test.ts      # Unit tests for handler
+│   │       ├── schema.test.ts       # Unit tests for schema
+│   │       └── definition.test.ts   # Unit tests for definition
+│   ├── utils/
+│   │   └── logger/
+│   │       └── logger.test.ts       # Unit tests for logger
+│   ├── scripts/
+│   │   └── bootstrap.test.ts        # Bootstrap script tests
+│   ├── server.test.ts               # Server tests
 │   └── integration/
-│       └── ping-inspector.test.ts  # Integration tests
+│       ├── ping-inspector.test.ts   # MCP protocol integration tests
+│       └── bootstrap.test.ts        # Bootstrap E2E tests
 ├── scripts/
+│   ├── bootstrap.js           # Interactive project setup
 │   └── test-inspector.sh      # Bash inspector tests
 ├── bin/
-│   └── cli.js                 # CLI wrapper
+│   └── cli.js                 # CLI wrapper (Yarn PnP support)
 ├── inspector-config.json      # MCP Inspector configuration
 └── dist/                      # Compiled output
 ```
@@ -97,11 +108,56 @@ yarn test:unit
 # Run integration tests
 yarn test:integration
 
+# Run bootstrap script tests (unit + E2E)
+yarn test:bootstrap
+
 # Run MCP Inspector tests (bash script)
 yarn test:inspector
 
 # Open interactive MCP Inspector UI
 yarn test:inspector:ui
+```
+
+## Test Structure
+
+Tests are organized to mirror the source folder structure for easy navigation. Each source file has a corresponding test file in the same relative location:
+
+```
+src/tools/ping/handler.ts    → tests/tools/ping/handler.test.ts
+src/tools/ping/schema.ts     → tests/tools/ping/schema.test.ts
+src/tools/ping/definition.ts → tests/tools/ping/definition.test.ts
+src/utils/logger/logger.ts   → tests/utils/logger/logger.test.ts
+src/server.ts                → tests/server.test.ts
+```
+
+**Test Categories:**
+
+- **Unit Tests**: Test individual components in isolation
+  - Tool handlers, schemas, and definitions
+  - Utility functions like the logger
+  - Bootstrap script validation and update functions
+
+- **Integration Tests** (`tests/integration/`): Test complete workflows
+  - `ping-inspector.test.ts`: MCP protocol communication via SDK Client
+  - `bootstrap.test.ts`: End-to-end bootstrap workflow in isolated environment
+
+### Adding Tests for New Tools
+
+When creating a new tool (e.g., `my-tool`), create corresponding test files:
+
+```bash
+# Source files
+src/tools/my-tool/
+├── handler.ts
+├── schema.ts
+├── definition.ts
+└── index.ts
+
+# Test files (mirror structure)
+tests/tools/my-tool/
+├── handler.test.ts      # Test handler logic
+├── schema.test.ts       # Test Zod schema validation
+└── definition.test.ts   # Test tool metadata
 ```
 
 ## How It Works
@@ -135,9 +191,18 @@ The server (`src/server.ts`) follows this pattern:
 
 To add a new tool:
 
-1. Create a new folder in `src/tools/` (e.g., `my-tool/`)
-2. Add the four required files: `schema.ts`, `definition.ts`, `handler.ts`, `index.ts`
-3. Import and register in `src/tools/index.ts`:
+1. **Create tool files** in `src/tools/` (e.g., `my-tool/`):
+   - `schema.ts` - Zod input/output validation schemas
+   - `definition.ts` - MCP tool metadata
+   - `handler.ts` - Tool implementation logic
+   - `index.ts` - Re-exports all components
+
+2. **Create test files** in `tests/tools/my-tool/`:
+   - `schema.test.ts` - Test Zod schema validation
+   - `definition.test.ts` - Test tool metadata
+   - `handler.test.ts` - Test handler logic
+
+3. **Register in `src/tools/index.ts`**:
 
 ```typescript
 // Add to imports
@@ -163,6 +228,8 @@ export function createToolHandlers(serverInfo: ServerInfo) {
   };
 }
 ```
+
+4. **Add integration tests** in `tests/integration/` and update `scripts/test-inspector.sh` with new tool tests
 
 ## Dependencies
 
@@ -208,6 +275,17 @@ Set the `LOG_LEVEL` environment variable to control logging:
 - `info`: Info, warn, error (default)
 - `warn`: Warn and error only
 - `error`: Errors only
+
+### File Imports
+
+All imports must use `.js` extension (TypeScript convention for ESM):
+
+```typescript
+import { logger } from './utils/logger/index.js';  // Correct
+import { logger } from './utils/logger/index';     // Wrong - will fail
+```
+
+This is required because TypeScript compiles to ESM format and Node.js requires explicit file extensions for ES modules.
 
 ## Testing with MCP Inspector
 
@@ -319,20 +397,22 @@ The configuration file is located at:
 
 ### Configuration
 
-After building the project with `yarn build`, add this to your configuration:
+Add this to your configuration file:
 
 ```json
 {
   "mcpServers": {
      "node-mcp-server": {
       "command": "npx",
-      "args": ["/absolute/path/to/node-mcp-server"],
+      "args": ["-y", "/absolute/path/to/node-mcp-server"]
     }
   }
 }
 ```
 
 Replace `/absolute/path/to/node-mcp-server` with the actual absolute path to this project directory.
+
+**Note**: The `npx` command works with the package via `bin/cli.js`, which automatically handles both Yarn PnP and standard node_modules installations. The `-y` flag ensures npx runs without prompting for confirmation.
 
 ### Verifying Installation
 
